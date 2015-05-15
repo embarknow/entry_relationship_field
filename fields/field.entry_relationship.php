@@ -232,7 +232,24 @@
 				'entries' => $entries
 			);
 
-			// return row
+			if (false === $simulate) {
+				$relationship = RelationshipManager::fetchById($this->get('relationship'));
+
+				$fromSectionId = $this->get('parent_section');
+				$fromEntryId = $entry_id;
+
+				// var_dump($entries, explode(',', $entries)); exit;
+
+				$relationship->removeAllLinks($fromEntryId);
+
+				if ('' !== $entries) {
+					foreach (explode(',', $entries) as $toEntryId) {
+						$toSectionId = EntryManager::fetchEntrySectionID($toEntryId);
+						$relationship->addLink($fromEntryId, $toEntryId);
+					}
+				}
+			}
+
 			return $row;
 		}
 
@@ -781,12 +798,12 @@
 			return $wrap;
 		}
 
-		private function createEntriesHiddenInput($data)
+		private function createEntriesHiddenInput($entries)
 		{
 			$hidden = new XMLElement('input', null, array(
 				'type' => 'hidden',
 				'name' => $this->createPublishFieldName('entries'),
-				'value' => $data['entries']
+				'value' => $entries
 			));
 
 			return $hidden;
@@ -936,12 +953,15 @@
 		{
 			$relationship = RelationshipManager::fetchById($this->get('relationship'));
 			$sections = $relationship->fetchSections();
-			$entriesId = array();
+			$entriesId = $relationship->getEntriesByEntryId($entry_id);
 
 			if ($data['entries'] != null) {
-				$entriesId = explode(self::SEPARATOR, $data['entries']);
-				$entriesId = array_map(array('General', 'intval'), $entriesId);
+				// $entriesId = explode(self::SEPARATOR, $data['entries']);
+				// $entriesId = array_map(array('General', 'intval'), $entriesId);
 			}
+
+			// var_dump($entriesId);
+			// exit;
 
 			$label = Widget::Label($this->get('label'));
 			$notes = '';
@@ -950,10 +970,12 @@
 			if ($relationship['min'] > 0) {
 				$notes .= __('Minimum number of entries: <b>%s</b>. ', [$relationship['min']]);
 			}
+
 			// max note
 			if ($relationship['max'] > 0) {
 				$notes .= __('Maximum number of entries: <b>%s</b>. ', [$relationship['max']]);
 			}
+
 			// not required note
 			if (!$this->isRequired()) {
 				$notes .= __('Optional');
@@ -972,12 +994,13 @@
 
 			$wrapper->appendChild($this->createEntriesList($entriesId));
 			$wrapper->appendChild($this->createPublishMenu($sections));
-			$wrapper->appendChild($this->createEntriesHiddenInput($data));
-			$wrapper->setAttribute('data-value', $data['entries']);
+			$wrapper->appendChild($this->createEntriesHiddenInput(implode(',', $entriesId)));
+			$wrapper->setAttribute('data-value', implode(',', $entriesId));
 			$wrapper->setAttribute('data-field-id', $this->get('id'));
 			$wrapper->setAttribute('data-field-label', $this->get('label'));
 			$wrapper->setAttribute('data-min', $this->get('min_entries'));
 			$wrapper->setAttribute('data-max', $this->get('max_entries'));
+
 			if (isset($_REQUEST['debug'])) {
 				$wrapper->setAttribute('data-debug', true);
 			}
